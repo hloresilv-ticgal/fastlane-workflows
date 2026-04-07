@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: 'Elige el Cliente'
+        description: 'Choose the Client'
         required: true
         type: choice
         options:
-          - clienteA
-          - clienteB
+          - clientA
+          - clientB
       track:
-        description: 'Fase de la Tienda'
+        description: 'Store Phase'
         required: true
         type: choice
         options:
@@ -23,20 +23,20 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Clonar código
+      - name: Clone code
         uses: actions/checkout@v3
 
-      - name: Asignar Secretos Exactos
+      - name: Assign Exact Secrets
         run: |
-          # Dependiendo del cliente que elijas en el menú, cargamos sus variables explícitamente
-          if [ "${{ github.event.inputs.flavor }}" == "clienteA" ]; then
+          # Depending on the client you choose in the menu, we load its variables explicitly
+          if [ "${{ github.event.inputs.flavor }}" == "clientA" ]; then
             echo "B64_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_B64 }}" >> $GITHUB_ENV
             echo "PASS_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_PASS }}" >> $GITHUB_ENV
             echo "ALIAS_KEY=${{ secrets.CLIENTEA_KEY_ALIAS }}" >> $GITHUB_ENV
             echo "PASS_ALIAS=${{ secrets.CLIENTEA_KEY_PASS }}" >> $GITHUB_ENV
             echo "B64_JSON=${{ secrets.CLIENTEA_PLAY_JSON_B64 }}" >> $GITHUB_ENV
           
-          elif [ "${{ github.event.inputs.flavor }}" == "clienteB" ]; then
+          elif [ "${{ github.event.inputs.flavor }}" == "clientB" ]; then
             echo "B64_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_B64 }}" >> $GITHUB_ENV
             echo "PASS_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_PASS }}" >> $GITHUB_ENV
             echo "ALIAS_KEY=${{ secrets.CLIENTEB_KEY_ALIAS }}" >> $GITHUB_ENV
@@ -44,15 +44,15 @@ jobs:
             echo "B64_JSON=${{ secrets.CLIENTEB_PLAY_JSON_B64 }}" >> $GITHUB_ENV
           fi
 
-      - name: Decodificar Archivos
+      - name: Decode Files
         run: |
           echo "$B64_KEYSTORE" | base64 --decode > ${{ github.workspace }}/keystore.jks
           echo "$B64_JSON" | base64 --decode > ${{ github.workspace }}/play_store_key.json
 
-      - name: Dar permisos a Gradle
+      - name: Grant permissions to Gradle
         run: chmod +x ./gradlew || chmod +x android/gradlew
 
-      - name: Compilar y Subir (Ejecuta Fastlane)
+      - name: Build and Upload (Runs Fastlane)
         env:
           KEYSTORE_PATH: "${{ github.workspace }}/keystore.jks"
           KEYSTORE_PASSWORD: ${{ env.PASS_KEYSTORE }}
@@ -66,14 +66,14 @@ jobs:
           fi
           fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
 
-      - name: Guardar App Bundle como artefacto (Prueba)
+      - name: Save App Bundle as artifact (Test)
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-${{ github.event.inputs.flavor }}
           path: "**/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab"
           retention-days: 5
 
-      - name: Limpieza (Por Seguridad)
+      - name: Cleanup (For Security)
         if: always()
         run: |
           rm -f ${{ github.workspace }}/keystore.jks
