@@ -1,4 +1,4 @@
-name: Android Auto-Deploy
+name: 🚀 Android Auto-Deploy
 
 on:
   workflow_dispatch:
@@ -20,54 +20,56 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted # Usa tu Docker Runner
+    runs-on: self-hosted
 
     steps:
       - name: Clonar código
         uses: actions/checkout@v3
 
-      - name: Preparar Llaves y Secretos
+      - name: Asignar Secretos Exactos
         run: |
-          FLAVOR_UPPER=$(echo "${{ github.event.inputs.flavor }}" | tr '[:lower:]' '[:upper:]')
+          # Dependiendo del cliente que elijas en el menú, cargamos sus variables explícitamente
+          if [ "${{ github.event.inputs.flavor }}" == "clienteA" ]; then
+            echo "B64_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_B64 }}" >> $GITHUB_ENV
+            echo "PASS_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_PASS }}" >> $GITHUB_ENV
+            echo "ALIAS_KEY=${{ secrets.CLIENTEA_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "PASS_ALIAS=${{ secrets.CLIENTEA_KEY_PASS }}" >> $GITHUB_ENV
+            echo "B64_JSON=${{ secrets.CLIENTEA_PLAY_JSON_B64 }}" >> $GITHUB_ENV
           
-          # Guardamos los archivos directamente en la raíz del espacio de trabajo (sin importar las carpetas)
-          echo "${{ secrets[format('{0}_KEYSTORE_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > ${{ github.workspace }}/keystore.jks
-          echo "${{ secrets[format('{0}_PLAY_JSON_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > ${{ github.workspace }}/play_store_key.json
-        env:
-          FLAVOR_UPPER: ${{ github.event.inputs.flavor }}
+          elif [ "${{ github.event.inputs.flavor }}" == "clienteB" ]; then
+            echo "B64_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_B64 }}" >> $GITHUB_ENV
+            echo "PASS_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_PASS }}" >> $GITHUB_ENV
+            echo "ALIAS_KEY=${{ secrets.CLIENTEB_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "PASS_ALIAS=${{ secrets.CLIENTEB_KEY_PASS }}" >> $GITHUB_ENV
+            echo "B64_JSON=${{ secrets.CLIENTEB_PLAY_JSON_B64 }}" >> $GITHUB_ENV
+          fi
+
+      - name: Decodificar Archivos
+        run: |
+          echo "$B64_KEYSTORE" | base64 --decode > ${{ github.workspace }}/keystore.jks
+          echo "$B64_JSON" | base64 --decode > ${{ github.workspace }}/play_store_key.json
 
       - name: Dar permisos a Gradle
-        # Si nuestro proyecto es nativo puro, gradlew está en la raíz. Si está dentro de android/, usa chmod +x android/gradlew
         run: chmod +x ./gradlew || chmod +x android/gradlew
 
       - name: Compilar y Subir (Ejecuta Fastlane)
         env:
-          # Le pasamos la ruta ABSOLUTA de los archivos que acabamos de crear
           KEYSTORE_PATH: "${{ github.workspace }}/keystore.jks"
-          KEYSTORE_PASSWORD: ${{ secrets[format('{0}_KEYSTORE_PASS', env.FLAVOR_UPPER)] }}
-          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', env.FLAVOR_UPPER)] }}
-          KEY_PASSWORD: ${{ secrets[format('{0}_KEY_PASS', env.FLAVOR_UPPER)] }}
-
+          KEYSTORE_PASSWORD: ${{ env.PASS_KEYSTORE }}
+          KEY_ALIAS: ${{ env.ALIAS_KEY }}
+          KEY_PASSWORD: ${{ env.PASS_ALIAS }}
           PLAY_STORE_JSON_PATH: "${{ github.workspace }}/play_store_key.json"
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           if [ -d "android/fastlane" ]; then
-            echo "Fastlane encontrado en /android. Entrando..."
             cd android
-          elif [ -d "fastlane" ]; then
-            echo "Fastlane encontrado en la raíz."
-          else
-            echo "ERROR CRÍTICO: No existe la carpeta 'fastlane'. Asegúrate de haberla subido a GitHub."
-            exit 1
           fi
-
           fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
 
-      - name: Guardar App Bundle como artefacto (Opcional - para pruebas)
+      - name: Guardar App Bundle como artefacto (Prueba)
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-${{ github.event.inputs.flavor }}
-          # Busca el archivo .aab sin importar si está dentro de app/ o android/app/
           path: "**/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab"
           retention-days: 5
 
