@@ -1,4 +1,4 @@
-name: 🚀 Android Auto-Deploy
+name: Android Auto-Deploy
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted # Cambiar el Docker Runner aquí
+    runs-on: self-hosted # Usa tu Docker Runner
 
     steps:
       - name: Clonar código
@@ -28,39 +28,43 @@ jobs:
 
       - name: Preparar Llaves y Secretos
         run: |
-          # Convertimos "clienteA" a "CLIENTEA" para buscar las variables dinámicas
           FLAVOR_UPPER=$(echo "${{ github.event.inputs.flavor }}" | tr '[:lower:]' '[:upper:]')
           
-          # Re-creamos los archivos físicos a partir del texto de GitHub Secrets
-          echo "${{ secrets[format('{0}_KEYSTORE_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > android/app/keystore.jks
-          echo "${{ secrets[format('{0}_PLAY_JSON_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > android/play_store_key.json
+          # Guardamos los archivos directamente en la raíz del espacio de trabajo (sin importar las carpetas)
+          echo "${{ secrets[format('{0}_KEYSTORE_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > ${{ github.workspace }}/keystore.jks
+          echo "${{ secrets[format('{0}_PLAY_JSON_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > ${{ github.workspace }}/play_store_key.json
         env:
           FLAVOR_UPPER: ${{ github.event.inputs.flavor }}
 
       - name: Dar permisos a Gradle
-        run: chmod +x android/gradlew
+        # Si nuestro proyecto es nativo puro, gradlew está en la raíz. Si está dentro de android/, usa chmod +x android/gradlew
+        run: chmod +x ./gradlew || chmod +x android/gradlew
 
-      - name: Compilar y Subir (Ejecuta Fastlane en el Docker)
+      - name: Compilar y Subir (Ejecuta Fastlane)
         env:
-          KEYSTORE_PATH: "keystore.jks"
+          # Le pasamos la ruta ABSOLUTA de los archivos que acabamos de crear
+          KEYSTORE_PATH: "${{ github.workspace }}/keystore.jks"
           KEYSTORE_PASSWORD: ${{ secrets[format('{0}_KEYSTORE_PASS', env.FLAVOR_UPPER)] }}
           KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', env.FLAVOR_UPPER)] }}
           KEY_PASSWORD: ${{ secrets[format('{0}_KEY_PASS', env.FLAVOR_UPPER)] }}
-          PLAY_STORE_JSON_PATH: "../play_store_key.json"
+
+          PLAY_STORE_JSON_PATH: "${{ github.workspace }}/play_store_key.json"
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          cd android
+          # Si existe la carpeta android (multiplataforma), entra. Si no (nativo), se queda en la raíz.
+          [ -d "android" ] && cd android
           fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
 
-      - name: Guardar App Bundle como artefacto
+      - name: Guardar App Bundle como artefacto (Opcional - para pruebas)
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-${{ github.event.inputs.flavor }}
-          path: android/app/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab
+          # Busca el archivo .aab sin importar si está dentro de app/ o android/app/
+          path: "**/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab"
           retention-days: 5
 
       - name: Limpieza (Por Seguridad)
         if: always()
         run: |
-          rm -f android/app/keystore.jks
-          rm -f android/play_store_key.json
+          rm -f ${{ github.workspace }}/keystore.jks
+          rm -f ${{ github.workspace }}/play_store_key.json
