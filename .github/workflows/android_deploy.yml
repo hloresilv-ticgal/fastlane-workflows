@@ -1,0 +1,66 @@
+name: 🚀 Android Auto-Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Elige el Cliente'
+        required: true
+        type: choice
+        options:
+          - clienteA
+          - clienteB
+      track:
+        description: 'Fase de la Tienda'
+        required: true
+        type: choice
+        options:
+          - internal
+          - beta
+
+jobs:
+  build:
+    runs-on: self-hosted # Cambiar el Docker Runner aquí
+
+    steps:
+      - name: Clonar código
+        uses: actions/checkout@v3
+
+      - name: Preparar Llaves y Secretos
+        run: |
+          # Convertimos "clienteA" a "CLIENTEA" para buscar las variables dinámicas
+          FLAVOR_UPPER=$(echo "${{ github.event.inputs.flavor }}" | tr '[:lower:]' '[:upper:]')
+          
+          # Re-creamos los archivos físicos a partir del texto de GitHub Secrets
+          echo "${{ secrets[format('{0}_KEYSTORE_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > android/app/keystore.jks
+          echo "${{ secrets[format('{0}_PLAY_JSON_B64', env.FLAVOR_UPPER)] }}" | base64 --decode > android/play_store_key.json
+        env:
+          FLAVOR_UPPER: ${{ github.event.inputs.flavor }}
+
+      - name: Dar permisos a Gradle
+        run: chmod +x android/gradlew
+
+      - name: Compilar y Subir (Ejecuta Fastlane en el Docker)
+        env:
+          KEYSTORE_PATH: "keystore.jks"
+          KEYSTORE_PASSWORD: ${{ secrets[format('{0}_KEYSTORE_PASS', env.FLAVOR_UPPER)] }}
+          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', env.FLAVOR_UPPER)] }}
+          KEY_PASSWORD: ${{ secrets[format('{0}_KEY_PASS', env.FLAVOR_UPPER)] }}
+          PLAY_STORE_JSON_PATH: "../play_store_key.json"
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          cd android
+          fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
+
+      - name: Guardar App Bundle como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Release-${{ github.event.inputs.flavor }}
+          path: android/app/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab
+          retention-days: 5
+
+      - name: Limpieza (Por Seguridad)
+        if: always()
+        run: |
+          rm -f android/app/keystore.jks
+          rm -f android/play_store_key.json
