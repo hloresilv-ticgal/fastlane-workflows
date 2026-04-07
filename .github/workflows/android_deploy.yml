@@ -51,8 +51,16 @@ jobs:
           PLAY_STORE_JSON_PATH: "${{ github.workspace }}/play_store_key.json"
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          # Si existe la carpeta android (multiplataforma), entra. Si no (nativo), se queda en la raíz.
-          [ -d "android" ] && cd android
+          if [ -d "android/fastlane" ]; then
+            echo "Fastlane encontrado en /android. Entrando..."
+            cd android
+          elif [ -d "fastlane" ]; then
+            echo "Fastlane encontrado en la raíz."
+          else
+            echo "ERROR CRÍTICO: No existe la carpeta 'fastlane'. Asegúrate de haberla subido a GitHub."
+            exit 1
+          fi
+
           fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
 
       - name: Guardar App Bundle como artefacto (Opcional - para pruebas)
