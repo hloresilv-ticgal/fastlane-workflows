@@ -1,4 +1,4 @@
-name: 🚀 Android Auto-Deploy
+name: Android Auto-Deploy
 
 on:
   workflow_dispatch:
