@@ -17,14 +17,33 @@ on:
         options:
           - internal
           - beta
+      core_branch:
+        description: 'Core Branch'
+        required: true
+        default: 'develop'
+      api_branch:
+        description: 'API branch'
+        required: true
+        default: 'develop'
+
 
 jobs:
   build:
     runs-on: self-hosted
-
     steps:
-      - name: Clone code
-        uses: actions/checkout@v3
+      - name: Clone Core Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.core_branch }}
+          fetch-depth: 0
+
+      - name: Merge API Branch
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          # Traemos la rama de la API y la fusionamos con el Core localmente para la compilación
+          git fetch origin ${{ github.event.inputs.api_branch }}
+          git merge origin/${{ github.event.inputs.api_branch }} --no-commit --no-ff || echo "Conflictos o nada que mergear"
 
       - name: Assign Exact Secrets
         run: |

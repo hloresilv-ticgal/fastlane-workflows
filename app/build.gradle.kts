@@ -4,9 +4,8 @@ plugins {
 
 android {
     namespace = "com.example.automatedworkflows"
-    compileSdk = 34 // Corregido a la sintaxis estándar
+    compileSdk = 34
 
-    // Cónfiguración de firmas dinámicas
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("KEYSTORE_PATH") ?: "debug.keystore")
@@ -21,7 +20,6 @@ android {
         minSdk = 24
         targetSdk = 34
 
-        // VersionCode dinámico desde GitHub Actions
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "1.0"
 
@@ -39,7 +37,6 @@ android {
         }
     }
 
-    // Declaración de Flavors
     flavorDimensions += "cliente"
     productFlavors {
         create("clienteA") {
