@@ -1,0 +1,25 @@
+default_platform(:android)
+
+platform :android do
+  lane :deploy do |options|
+    flavor = options[:flavor]
+    track_name = options[:track]
+
+    # Llama al Gradle del proyecto para compilar el App Bundle
+    gradle(
+      task: "bundle",
+      flavor: flavor,
+      build_type: "Release"
+    )
+
+    # Sube el App Bundle a la tienda de Google, de momento omitido porque no tengo el .json con la firma de de Google Cloud Service Account
+    # upload_to_play_store(
+    #  track: track_name,
+    #  json_key: ENV["PLAY_STORE_JSON_PATH"],
+    #  aab: "app/build/outputs/bundle/#{flavor}Release/app-#{flavor}-release.aab",
+    #  skip_upload_metadata: true,
+    #  skip_upload_images: true,
+    #  skip_upload_screenshots: true
+    # )
+  end
+end
