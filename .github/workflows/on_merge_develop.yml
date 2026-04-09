@@ -1,4 +1,4 @@
-name: Automate Versioning and Cleanup
+name: Automate Core Versioning and Cleanup
 
 on:
   pull_request:
@@ -7,12 +7,11 @@ on:
       - develop
 
 jobs:
-  update-version-and-cleanup:
-    # Solo se ejecuta si el PR fue aceptado (merged), no si fue cerrado sin mergear
+  update-version:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Necesario para hacer commit y borrar ramas
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -26,27 +25,24 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Update Dart Version and Changelog
-        run: |
-          python3 .github/scripts/update_version.py
+      - name: Auto-increment Core & Update Changelog
+        run: python3 .github/scripts/update_core.py
 
-      - name: Commit changes
+      - name: Commit and Push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add lib/gapp_version.dart changelog.md
-          git commit -m "chore: auto-increment version and update changelog [skip ci]"
+          git add lib/gapp_core.dart changelog.md
+          git commit -m "chore: auto-increment core build and changelog [skip ci]"
           git push origin develop
 
       - name: Delete Feature Branches
         run: |
-          # Borra la rama origen del Pull Request (Ej: feature/core)
+          # Borra la rama origen del PR
           PR_BRANCH="${{ github.event.pull_request.head.ref }}"
           git push origin --delete $PR_BRANCH || true
           
-          # Si usas una convención de nombres (ej: feature/api-XXX emparejada con feature/core-XXX), 
-          # puedes borrar la de la API dinámicamente. 
-          # Suponiendo que la nombras igual pero con "api" en vez de "core":
+          # Intenta borrar su par (Si el PR es feature/core-123, borra feature/api-123)
           API_BRANCH="${PR_BRANCH/core/api}"
           if [ "$PR_BRANCH" != "$API_BRANCH" ]; then
             git push origin --delete $API_BRANCH || true

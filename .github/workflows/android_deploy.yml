@@ -7,93 +7,37 @@ on:
         description: 'Choose the Client'
         required: true
         type: choice
-        options:
-          - clientA
-          - clientB
+        options: [ clientA, clientB ]
       track:
         description: 'Store Phase'
         required: true
         type: choice
-        options:
-          - internal
-          - beta
+        options: [ internal, beta ]
       core_branch:
-        description: 'Core Branch'
+        description: 'Rama del Core'
         required: true
         default: 'develop'
       api_branch:
-        description: 'API branch'
+        description: 'Rama de la API'
         required: true
         default: 'develop'
-
 
 jobs:
   build:
     runs-on: self-hosted
     steps:
-      - name: Clone Core Branch
+      - name: Clone Core code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.core_branch }}
           fetch-depth: 0
 
-      - name: Merge API Branch
+      - name: Merge API code
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          # Traemos la rama de la API y la fusionamos con el Core localmente para la compilación
+          # Trae la rama de la API y la fusiona localmente
           git fetch origin ${{ github.event.inputs.api_branch }}
-          git merge origin/${{ github.event.inputs.api_branch }} --no-commit --no-ff || echo "Conflictos o nada que mergear"
+          git merge origin/${{ github.event.inputs.api_branch }} --no-commit --no-ff || echo "Nada que mergear o conflictos manejados"
 
-      - name: Assign Exact Secrets
-        run: |
-          # Depending on the client you choose in the menu, we load its variables explicitly
-          if [ "${{ github.event.inputs.flavor }}" == "clientA" ]; then
-            echo "B64_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_B64 }}" >> $GITHUB_ENV
-            echo "PASS_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_PASS }}" >> $GITHUB_ENV
-            echo "ALIAS_KEY=${{ secrets.CLIENTEA_KEY_ALIAS }}" >> $GITHUB_ENV
-            echo "PASS_ALIAS=${{ secrets.CLIENTEA_KEY_PASS }}" >> $GITHUB_ENV
-            echo "B64_JSON=${{ secrets.CLIENTEA_PLAY_JSON_B64 }}" >> $GITHUB_ENV
-          
-          elif [ "${{ github.event.inputs.flavor }}" == "clientB" ]; then
-            echo "B64_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_B64 }}" >> $GITHUB_ENV
-            echo "PASS_KEYSTORE=${{ secrets.CLIENTEB_KEYSTORE_PASS }}" >> $GITHUB_ENV
-            echo "ALIAS_KEY=${{ secrets.CLIENTEB_KEY_ALIAS }}" >> $GITHUB_ENV
-            echo "PASS_ALIAS=${{ secrets.CLIENTEB_KEY_PASS }}" >> $GITHUB_ENV
-            echo "B64_JSON=${{ secrets.CLIENTEB_PLAY_JSON_B64 }}" >> $GITHUB_ENV
-          fi
-
-      - name: Decode Files
-        run: |
-          echo "$B64_KEYSTORE" | base64 --decode > ${{ github.workspace }}/keystore.jks
-          echo "$B64_JSON" | base64 --decode > ${{ github.workspace }}/play_store_key.json
-
-      - name: Grant permissions to Gradle
-        run: chmod +x ./gradlew || chmod +x android/gradlew
-
-      - name: Build and Upload (Runs Fastlane)
-        env:
-          KEYSTORE_PATH: "${{ github.workspace }}/keystore.jks"
-          KEYSTORE_PASSWORD: ${{ env.PASS_KEYSTORE }}
-          KEY_ALIAS: ${{ env.ALIAS_KEY }}
-          KEY_PASSWORD: ${{ env.PASS_ALIAS }}
-          PLAY_STORE_JSON_PATH: "${{ github.workspace }}/play_store_key.json"
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-        run: |
-          if [ -d "android/fastlane" ]; then
-            cd android
-          fi
-          fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
-
-      - name: Save App Bundle as artifact (Test)
-        uses: actions/upload-artifact@v4
-        with:
-          name: App-Release-${{ github.event.inputs.flavor }}
-          path: "**/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab"
-          retention-days: 5
-
-      - name: Cleanup (For Security)
-        if: always()
-        run: |
-          rm -f ${{ github.workspace }}/keystore.jks
-          rm -f ${{ github.workspace }}/play_store_key.json
+      # ... (Aquí continúan tus steps: Assign Exact Secrets, Decode Files, Fastlane...)

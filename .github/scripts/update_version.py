@@ -1,49 +1,55 @@
 import re
 import os
 
-DART_FILE = 'lib/gapp_version.dart'
+DART_FILE = 'lib/gapp_core.dart'
 CHANGELOG_FILE = 'changelog.md'
 
 def main():
-    # 1. LEER EL ARCHIVO DART
+    # 1. ACTUALIZAR GAPP_CORE.DART
     with open(DART_FILE, 'r', encoding='utf-8') as f:
         dart_content = f.read()
 
-    # Buscar la versión (ej. '2.8.4')
-    version_match = re.search(r"static const version = '([\d\.]+)';", dart_content)
+    # Buscar la versión semántica (Ej: 2.8.4)
+    version_match = re.search(r"static const coreVersion = '([\d\.]+)';", dart_content)
     if not version_match:
-        print("No se encontró la versión en el archivo dart.")
+        print("No se encontró 'coreVersion' en gapp_core.dart")
         return
     current_version = version_match.group(1)
     version_clean = current_version.replace('.', '') # '2.8.4' -> '284'
 
-    # Buscar el build (ej. '(2.0673.00)')
-    build_match = re.search(r"static const build = '\(2\.(\d{4})\.00\)';", dart_content)
-    if not build_match:
-        print("No se encontró el build en el archivo dart.")
+    # Expresión regular para encontrar la estructura (X.YYYY.ZZ) en android y apple
+    # Grupo 1: prefijo (ej. '(2.')
+    # Grupo 2: Core Build (ej. '0673')
+    # Grupo 3: sufijo / flavor (ej. '.02)')
+    regex_pattern = r"(\(\d+\.)(\d{4})(\.\d{2}\))"
+
+    # Buscamos el core actual basándonos en la primera coincidencia (asumimos que android y apple tienen el mismo core)
+    match = re.search(regex_pattern, dart_content)
+    if not match:
+        print("No se encontró el formato (X.YYYY.ZZ) en el archivo dart.")
         return
-    current_build_num = int(build_match.group(1))
 
-    # Incrementar el build
-    new_build_num = current_build_num + 1
-    new_build_str = f"{new_build_num:04d}" # Convierte 674 -> 0674
-    full_new_issue = f"0000{new_build_str[-3:]}" # Asegura formato 0000674
+    current_core_build = int(match.group(2))
+    new_core_build = current_core_build + 1
+    new_core_str = f"{new_core_build:04d}" # Convierte 674 en '0674'
 
-    # Actualizar contenido dart
-    new_build_text = f"static const build = '(2.{new_build_str}.00)';"
-    dart_content = dart_content.replace(build_match.group(0), new_build_text)
+    # Función para reemplazar solo el bloque central YYYY en todas las coincidencias
+    def replacer(m):
+        return f"{m.group(1)}{new_core_str}{m.group(3)}"
+
+    dart_content = re.sub(regex_pattern, replacer, dart_content)
 
     with open(DART_FILE, 'w', encoding='utf-8') as f:
         f.write(dart_content)
-    print(f"Dart actualizado: Build {current_build_num} -> {new_build_num}")
+    print(f"Core Build actualizado en Dart: {current_core_build} -> {new_core_build}")
 
-    # 2. ACTUALIZAR EL CHANGELOG
+    # 2. ACTUALIZAR CHANGELOG.MD
     with open(CHANGELOG_FILE, 'r', encoding='utf-8') as f:
         changelog_content = f.read()
 
-    # Vamos a buscar el span gris del NUEVO número y reemplazarlo por el enlace
-    # Patrón a buscar: <span style="color:grey">0000675 |</span> (o sin el pipe al final)
-    # Reemplazo: [0000675](#284-0000675) |
+    # Formateamos para que tenga 7 dígitos igual que en tu changelog: '0000674'
+    # Como new_core_str tiene 4 (ej '0674'), le añadimos '000' delante
+    full_new_issue = f"000{new_core_str}"
 
     target_span = f'<span style="color:grey">{full_new_issue} |</span>'
     target_span_end = f'<span style="color:grey">{full_new_issue} </span>'
@@ -56,11 +62,11 @@ def main():
     elif target_span_end in changelog_content:
         changelog_content = changelog_content.replace(target_span_end, replacement_end)
     else:
-        print(f"ADVERTENCIA: No se encontró el espacio para {full_new_issue} en el Changelog. Revisa si necesitas añadir más líneas grises.")
+        print(f"ADVERTENCIA: No se encontró el span gris para {full_new_issue} en el Changelog.")
 
     with open(CHANGELOG_FILE, 'w', encoding='utf-8') as f:
         f.write(changelog_content)
-    print(f"Changelog actualizado con la issue {full_new_issue}.")
+    print(f"Changelog actualizado con el issue {full_new_issue}.")
 
 if __name__ == "__main__":
     main()
