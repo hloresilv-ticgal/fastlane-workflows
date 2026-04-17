@@ -38,11 +38,9 @@ jobs:
 
       - name: Delete Feature Branches
         run: |
-          # Borra la rama origen del PR
           PR_BRANCH="${{ github.event.pull_request.head.ref }}"
           git push origin --delete $PR_BRANCH || true
           
-          # Intenta borrar su par (Si el PR es feature/core-123, borra feature/api-123)
           API_BRANCH="${PR_BRANCH/core/api}"
           if [ "$PR_BRANCH" != "$API_BRANCH" ]; then
             git push origin --delete $API_BRANCH || true
