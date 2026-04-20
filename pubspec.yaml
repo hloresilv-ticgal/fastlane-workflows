@@ -1,0 +1,7 @@
+## example
+name: gapp_flavor
+description: Gapp FIXAT Version.
+
+publish_to: 'none'
+
+version: 2.8.4+2066500

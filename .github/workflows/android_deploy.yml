@@ -40,9 +40,9 @@ jobs:
           git fetch origin ${{ github.event.inputs.api_branch }}
           git merge origin/${{ github.event.inputs.api_branch }} --no-commit --no-ff || echo "Conflictos manejados o nada que mergear"
 
+      # Depending on the client you choose in the menu, we load its variables explicitly
       - name: Assign Exact Secrets
         run: |
-          # Depending on the client you choose in the menu, we load its variables explicitly
           if [ "${{ github.event.inputs.flavor }}" == "clientA" ]; then
             echo "B64_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_B64 }}" >> $GITHUB_ENV
             echo "PASS_KEYSTORE=${{ secrets.CLIENTEA_KEYSTORE_PASS }}" >> $GITHUB_ENV
@@ -66,7 +66,7 @@ jobs:
       - name: Grant permissions to Gradle
         run: chmod +x ./gradlew || chmod +x android/gradlew
 
-      - name: Build and Upload (Runs Fastlane)
+      - name: Build and Upload - Fastlane
         env:
           KEYSTORE_PATH: "${{ github.workspace }}/keystore.jks"
           KEYSTORE_PASSWORD: ${{ env.PASS_KEYSTORE }}
@@ -80,14 +80,14 @@ jobs:
           fi
           fastlane deploy flavor:${{ github.event.inputs.flavor }} track:${{ github.event.inputs.track }}
 
-      - name: Save App Bundle as artifact (Test)
+      - name: Save App Bundle as artifact for Testing
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-${{ github.event.inputs.flavor }}
           path: "**/build/outputs/bundle/${{ github.event.inputs.flavor }}Release/*.aab"
           retention-days: 5
 
-      - name: Cleanup (For Security)
+      - name: Cleanup
         if: always()
         run: |
           rm -f ${{ github.workspace }}/keystore.jks
